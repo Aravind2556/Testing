@@ -136,6 +136,7 @@ const candidateSchema = new Schema({
   },
   noticePeriodServingDate: { type: Date },
   lwd: { type: Date },
+  
   primarySkills: [{
     primarySkill: { type: String, lowercase: true, trim: true },
     experience: {
@@ -145,6 +146,7 @@ const candidateSchema = new Schema({
     lastUsed: { type: Number, trim: true },
     version: {type: String, trim: true}
   }],
+
   skills: [{
     skill: { type: String, lowercase: true, trim: true },
     experience: {
@@ -174,31 +176,36 @@ const candidateSchema = new Schema({
       city: { type: String, trim: true },
       state: { type: String, trim: true },
       country: { type: String, trim: true },
+      zipCode : {type : String , trim : true},
+
+// New Add new structure for mark
+      mode: {type : String , },
+      grade : {
+        type: {type : String , enum : ["cgpa" , "percent"] ,lowercase : true , trim : true , default : "cgpa"},
+        value : {type : Number} 
+      } 
+
+
     }
   ],
   experiences: [
     {
-      jobTitle: { type: String, trim: true },
-      employer: { type: String, trim: true },
-      periodFrom: { type: Date },
-      periodTo: { type: Date },
-      isOngoing: { type: Boolean },
-      location: { type: String, trim: true },
-      description: { type: String, trim: true },
-      isCurrentExperience: { type: Boolean },
+      jobTitle: { type: String, trim: true },          // Job title
+      employer: { type: String, trim: true },          // Company name
+      employmentType: { type: String, trim: true },    // Full-time, Part-time, etc.
+      industryType: { type: String, trim: true },      // Industry type
+      periodFrom: { type: Date },                      // Start date
+      periodTo: { type: Date },                        // End date
+      isOngoing: { type: Boolean, default: false },   // If currently working
+      noticePeriod: { type: String, trim: true },     // Notice period (e.g., "2 months")
+      location: { type: String, trim: true },         // Office location
+      city: { type: String, trim: true },
+      state: { type: String, trim: true },
+      country: { type: String, trim: true },
+      description: { type: String, trim: true }       // Job description / responsibilities
     }
   ],
-  projects: [
-    {
-      projectName: { type: String, trim: true },
-      clientName: { type: String, trim: true },
-      periodFrom: { type: Date },
-      periodTo: { type: Date },
-      location: { type: String, trim: true },
-      description: { type: String, trim: true },
-      role: { type: String, trim: true },
-    }
-  ],
+
   certifications: [
     {
       certificationName: { type: String, trim: true },
@@ -210,6 +217,20 @@ const candidateSchema = new Schema({
       link: { type: String, trim: true }
     }
   ],
+
+  projects: [
+    {
+      projectName: { type: String, trim: true },
+      clientName: { type: String, trim: true },
+      periodFrom: { type: Date },
+      periodTo: { type: Date },
+      location: { type: String, trim: true },
+      description: { type: String, trim: true },
+      role: { type: String, trim: true },
+    }
+  ],
+
+
   socialProfiles: [
     {
       name: { type: String, trim: true },

@@ -244,6 +244,63 @@ summaryRouter.post('/personalInfromation', async (req, res) => {
 });
 
 
+summaryRouter.post('/education' , async (req,res) =>{
+    try{
+        const { education } = req.body
+        console.log("education",education)
+
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // 🔹 Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+        // 🔹 DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        const existingCandidate = await candidate.findOne({ "user.id": userId.id })
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        } 
+        
+        // 🔹 Mandatory fields validation
+        for (let i = 0; i < education.length; i++) {
+            const edu = education[i];
+            if (
+                !edu.institutionName ||
+                !edu.courseCategory ||
+                !edu.courseType ||
+                !edu.courseName ||
+                !edu.gradeType ||
+                !edu.gradeValue ||
+                !edu.industryType ||
+                !edu.periodFromYear ||
+                (!edu.isOngoing && !edu.periodToYear)
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Education entry ${i + 1} is missing mandatory fields.`
+                });
+            }
+        }
+
+        // 🔹 Save education to candidate
+        existingCandidate.education = education;
+        await existingCandidate.save();
+
+        return res.status(200).json({ success: true, message: "Education saved successfully." });
+
+    }
+    catch (err) {
+        console.log("Error in /personalInfromation route", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving personal information" });
+    }
+})
+
+
 
 
 module.exports = summaryRouter;
