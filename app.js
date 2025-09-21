@@ -27,7 +27,7 @@ const SessionExpire = require('./utils/SessionExpire/Expire')
 const summaryRouter = require('./routes/CandidateSummeryDeatils')
 
 
-const MongoDbSession = require('connect-mongodb-session')(Session);
+const MongoDbSession = require('connect-mongodb-session')(Session); 
 require('dotenv').config();
 
 const app = Express();
