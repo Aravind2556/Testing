@@ -6,8 +6,8 @@ const isAuth = require("../middleware/isAuth");
 const userModel = require("../models/User")
 const validatePreferredJobForm = require('../utils/validator/preferredValidator')
 
-
-summaryRouter.post("/summerinfromation", async (req, res) => {
+// 🔹 Route to handle summary information submission Completed
+summaryRouter.post("/summerinfromation",isAuth, async (req, res) => {
     try {
         const { profileSummary, address } = req.body;
         console.log("profileSummary, address", profileSummary, address)
@@ -23,7 +23,7 @@ summaryRouter.post("/summerinfromation", async (req, res) => {
         if (!userId) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-        const existingCandidate = await candidate.findOne({ "user.id": userId })
+        const existingCandidate = await candidate.findOne({ user : userId})
         if (!existingCandidate) {
             return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
         }          
@@ -58,17 +58,17 @@ summaryRouter.post("/summerinfromation", async (req, res) => {
         if (existingCandidate) {
             // 🔹 Update existing candidate
             existingCandidate.profileSummary = profileSummary;
-            existingCandidate.sameasPresentAddress = address.sameAsPresent || false;
-            existingCandidate.presentAddress = address.present;
-            existingCandidate.permanentAddress = address.sameAsPresent
-            existingCandidate.permanentAddress = address.sameAsPresent
             existingCandidate.isSummeryInfromation = true
+            existingCandidate.sameasPresentAddress = address.sameAsPresent
+            existingCandidate.presentAddress = address.present;
+            existingCandidate.permanentAddress = address.sameAsPresent     
                 ? { ...address.present }
                 : address.permanent;
 
             await existingCandidate.save();
+            console.log("Candidate info updated successfully", existingCandidate);
 
-            return res.json({success: true ,message: "Candidate info updated successfully",data: existingCandidat});
+            return res.json({ success: true, message: "Candidate info updated successfully", data: existingCandidate});
         }
 
     } catch (err) {
@@ -79,6 +79,10 @@ summaryRouter.post("/summerinfromation", async (req, res) => {
         });
     }
 });
+
+
+
+
 
 summaryRouter.post('/educationinformation',isAuth , async (req,res)=>{
     try{
@@ -234,9 +238,9 @@ summaryRouter.get('/fetch-information',  async (req,res)=>{
 
 summaryRouter.post('/personalInfromation', async (req, res) => {
     try {
-        const personalDetail = req.body; // use the whole body directly
-        console.log("personalDetail", personalDetail);
-        return res.json({ success: true, message: "Personal info received", data: personalDetail });
+        const { profile, profileInformation, language, disability } = req.body; // use the whole body directly
+        console.log("personalDetail", profile, profileInformation, language, disability);
+        return res.json({ success: true, message: "Personal info received"});
     } catch (err) {
         console.log("Error in /personalInfromation route", err);
         return res.status(500).json({ success: false, message: "Internal server error while saving personal information" });

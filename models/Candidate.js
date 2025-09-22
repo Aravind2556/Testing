@@ -52,14 +52,16 @@ const fieldWeights = {
 };
 
 const candidateSchema = new Schema({
-  candidateID: {type: String, required: true, unique: true, lowercase: true, trim: true},
+  // candidateID: {type: String, required: true, unique: true, lowercase: true, trim: true},
   applicantID: { type: Number, unique: true, sparse: true },
-  user: { type: Schema.Types.ObjectId, ref: userModel },
+  applicantName: { type: String, trim: true },
+  applicantFullName: { type: String, trim: true },
+
+  user: { type: Schema.Types.ObjectId, ref: userModel }, 
   firstName: { type: String, trim: true },
   middleName: { type: String, trim: true },
   lastName: { type: String, trim: true },
-  applicantName: { type: String, trim: true },
-  applicantFullName: { type: String, trim: true },
+  fullName: { type: String, trim: true },
   emailAddress: { type: String, lowercase: true, trim: true, unique: true },
   alternateEmailAddress: { type: String, lowercase: true, trim: true },
   phoneNumber: {
@@ -72,37 +74,38 @@ const candidateSchema = new Schema({
   },
   gender: { type: String, lowercase: true, trim: true, enum: ["female", "male", "other"] },
   dateOfBirth: { type: Date },
-  disability: {
-    isDisabled: { type: Boolean, default: false },
-    desc: { type: String }
-  },
   maritalStatus: { type: String, lowercase: true, trim: true, enum: ["single", "married", "divorced", "widowed"] },
   languages: [
     {
-      name: { type: String },
+      language: { type: String },
       proficiency: { type: String, lowercase: true, trim: true, enum: ["beginner", "intermediate", "advanced"] },
       read: { type: Boolean },
       write: { type: Boolean },
       speak: { type: Boolean }
     }
   ],
+  disability: {
+    isDisabled: { type: Boolean, default: false },
+    desc: { type: String }
+  },
+
   profileSummary: { type: String },
   sameasPresentAddress : {type : Boolean , default : false},
   isSummeryInfromation: { type: Boolean, default: false },
   presentAddress: {
+    doorNumber : { type: String, trim: true },
     addressLine1: { type: String },
     addressLine2: { type: String },
     city: { type: String },
-    district: { type: String },
     state: { type: String },
     country: { type: String },
     zipCode: { type: Number }
   },
   permanentAddress: {
+    doorNumber: { type: String, trim: true },
     addressLine1: { type: String },
     addressLine2: { type: String },
     city: { type: String },
-    district: { type: String },
     state: { type: String },
     country: { type: String },
     zipCode: { type: Number }
