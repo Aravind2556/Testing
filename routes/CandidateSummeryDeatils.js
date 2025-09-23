@@ -80,6 +80,208 @@ summaryRouter.post("/summerinfromation",isAuth, async (req, res) => {
     }
 });
 
+summaryRouter.post('/candidate-skills' ,isAuth, async (req,res) => {
+    try{
+        const { skills , type} = req.body
+        console.log("skills", skills, type)
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // 🔹 Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+        // 🔹 DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        const existingCandidate = await candidate.findOne({ user: userId })
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        } 
+        if (type === "primarySkills") {
+            if (skills && skills.length > 0) {
+                // Normalize skills to include experience properly
+                const formattedSkills = skills.map((s) => ({
+                    id : s.id,
+                    primarySkill: s.primarySkill.trim().toLowerCase(),
+                    experience: Array.isArray(s.experience)
+                        ? s.experience[0]
+                        : s.experience || { month: 0, year: 0 },
+                    lastUsed: s.lastUsed || "",
+                    version: s.version || "",
+                }));
+
+                // Remove duplicates by primarySkill
+                const existingSkillNames = existingCandidate.primarySkills
+                    .map((s) => s.primarySkill.trim().toLowerCase());
+                const merged = [...existingSkillNames, ...formattedSkills.map(f => f.primarySkill)];
+                const uniqueSkillNames = [...new Set(merged)];
+
+                const uniqueFormattedSkills = uniqueSkillNames.map(name => {
+                    const skill = formattedSkills.find(f => f.primarySkill === name)
+                        || existingCandidate.primarySkills.find(e => e.primarySkill === name);
+                    return skill;
+                });
+
+                existingCandidate.primarySkills = uniqueFormattedSkills;
+                existingCandidate.skills = uniqueFormattedSkills;
+
+                await existingCandidate.save();
+                return res.status(200).json({
+                    success: true,
+                    message: "Primary skills saved successfully",
+                    data: existingCandidate.primarySkills
+                });
+            }
+        }
+
+        else{
+            return res.status(400).json({ success: false, message: "Invalid type specified" });
+        }
+
+
+        
+
+    }
+    catch (err) {
+        console.log("Error in Candidate skills", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate skills" });        
+    }
+})
+
+// candidate experience route Completed
+summaryRouter.post('/candidate-experience', isAuth, async (req, res) => {
+    try {
+        const { experience, type ,id } = req.body;
+        console.log("experience", experience, type , id);
+        
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        if (type === "create") {
+            if (experience && experience.length > 0) {
+                const formatExperience = [];
+
+                for (const exp of experience) {
+                    // 🔹 Validation check
+                    if (!exp.jobTitle || !exp.employer || !exp.periodFrom[0] || !exp.employmentType || !exp.industryType || !exp.noticePeriod) {
+                        return res.json({ success: false, message: "All mandatory fields are required!" });
+                    }
+
+                    // 🔹 Format periodFrom
+                    const yearFrom = exp.periodFrom[0];
+                    const monthFrom = exp.periodFrom[1] || "01";
+                    const dayFrom = exp.periodFrom[2] || "01";
+                    const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
+
+                    let periodTo = null;
+                    if (exp.isOngoing === false) {
+                        if (!exp.periodTo[0]) {
+                            return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                        }
+                        const yearTo = exp.periodTo[0];
+                        const monthTo = exp.periodTo[1] || "01";
+                        const dayTo = exp.periodTo[2] || "01";
+                        periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+                    }
+
+                    formatExperience.push({
+                        jobTitle: exp.jobTitle.trim().toLowerCase(),
+                        employer: exp.employer.trim().toLowerCase(),
+                        employmentType: exp.employmentType.trim().toLowerCase(),
+                        industryType: exp.industryType.trim().toLowerCase(),
+                        noticePeriod: exp.noticePeriod.trim().toLowerCase(),
+
+                        isOngoing: exp.isOngoing,
+                        location: exp.location || "",
+                        city: exp.city || "",
+                        state: exp.state || "",
+                        country: exp.country || "",
+                        description: exp.description || "",
+                        isFresher: exp.isFresher || false,
+                    });
+                }
+
+                //DB save logic (spread operator so array not nested)
+                existingCandidate.experiences.push(...formatExperience);
+                await existingCandidate.save();
+
+                return res.json({ success: true, message: "Experience saved successfully" });
+            } else {
+                return res.json({ success: false, message: "Experience data is required!" });
+            }
+        } else if (type === "update") {
+            if (!id) {
+                return res.send({ success: false, message: "Updated id is required! Contact admin." });
+            }
+
+            if (experience && experience.length > 0) {
+                const expToUpdate = existingCandidate.experiences.id(id); // Mongoose subdocument find
+                if (!expToUpdate) {
+                    return res.status(404).json({ success: false, message: "Experience not found" });
+                }
+
+                const exp = experience[0]; // Assuming only 1 object sent for update
+
+                // Validation check
+                if (!exp.jobTitle || !exp.employer || !exp.periodFrom[0] || !exp.employmentType || !exp.industryType || !exp.noticePeriod) {
+                    return res.json({ success: false, message: "All mandatory fields are required!" });
+                }
+
+                // Format dates
+                // const periodFrom = new Date(`${exp.periodFrom[0]}-${(exp.periodFrom[1] || "01").padStart(2, "0")}-${(exp.periodFrom[2] || "01").padStart(2, "0")}`);
+                // let periodTo = null;
+                // if (!exp.isOngoing) {
+                //     periodTo = new Date(`${exp.periodTo[0]}-${(exp.periodTo[1] || "01").padStart(2, "0")}-${(exp.periodTo[2] || "01").padStart(2, "0")}`);
+             
+
+                // Update fields
+                expToUpdate.jobTitle = exp.jobTitle.trim().toLowerCase();
+                expToUpdate.employer = exp.employer.trim().toLowerCase();
+                expToUpdate.employmentType = exp.employmentType.trim().toLowerCase();
+                expToUpdate.industryType = exp.industryType.trim().toLowerCase();
+                expToUpdate.noticePeriod = exp.noticePeriod.trim().toLowerCase();
+                // expToUpdate.periodFrom = periodFrom;
+                // expToUpdate.periodTo = periodTo;
+                expToUpdate.isOngoing = exp.isOngoing;
+                expToUpdate.location = exp.location || "";
+                expToUpdate.city = exp.city || "";
+                expToUpdate.state = exp.state || "";
+                expToUpdate.country = exp.country || "";
+                expToUpdate.description = exp.description || "";
+                expToUpdate.isFresher = exp.isFresher || false;
+
+                await existingCandidate.save();
+                return res.json({ success: true, message: "Experience updated successfully" });
+            }
+        }else{
+            return res.send({success : false , message : "not ok clear"})
+        }    
+    } catch (err) {
+        console.log("Error in Candidate experience", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate experience" });
+    }
+});
+
+
 
 
 
@@ -207,34 +409,53 @@ summaryRouter.post('/perferredinfromation', isAuth, async (req, res) => {
 });
 
 
-summaryRouter.get('/fetch-information',  async (req,res)=>{
-    try{
+summaryRouter.get('/fetch-information', async (req, res) => {
+    try {
         if (!req.session || !req.session.user) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
-        //Role check
+
+        // 🔹 Role check
         if (req.session.user.role !== "job-seeker") {
             return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
         }
-        //User existence check
+
+        // 🔹 User existence check
         const userId = await userModel.findOne({ id: req.session.user.id });
         if (!userId) {
             return res.status(404).json({ success: false, message: "User not found" });
-        } 
-        const canidateInformation = await candidate.findOne({"user.id" : userId.id})
-        if (canidateInformation){
-            return res.json({ success: true, canidateInformation })
-        }
-        else{
-            return res.json({success : false , message : "Candidate not fount please try again later!"})
         }
 
+        // 🔹 Candidate existence check
+        const candidateInformation = await candidate
+            .findOne({ user: userId._id })
+            .populate('user', '-password -__v -_id');
+
+        if (!candidateInformation) {
+            return res.json({ success: false, message: "Candidate not found. Please try again later!" });
+        }
+
+        // 🔹 Extract information safely
+        const candidateExperience = candidateInformation.experiences || [];
+        const candidateEducation = candidateInformation.educations || [];
+        const candidateSkills = candidateInformation.skills || [];
+        const candidatePrimarySkills = candidateInformation.primarySkills || [];
+
+        return res.json({
+            success: true,
+            candidateInformation,
+            candidateExperience,
+            candidateEducation,
+            candidateSkills,
+            candidatePrimarySkills
+        });
+
+    } catch (err) {
+        console.log("Error in /fetch-information route", err);
+        return res.status(500).json({ success: false, message: "Internal server error while fetching candidate information" });
     }
-    catch (err) {
-        console.log("Error in /perferredinfromation route", err);
-        return res.status(500).json({ success: false, message: "Internal server error while saving preferred information" });
-    }
-})
+});
+
 
 summaryRouter.post('/personalInfromation', async (req, res) => {
     try {

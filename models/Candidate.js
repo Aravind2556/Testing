@@ -141,16 +141,19 @@ const candidateSchema = new Schema({
   lwd: { type: Date },
   
   primarySkills: [{
+    id : {type :String},
     primarySkill: { type: String, lowercase: true, trim: true },
     experience: {
       month: { type: Number },
       year: { type: Number }
     },
+    
     lastUsed: { type: Number, trim: true },
     version: {type: String, trim: true}
   }],
 
   skills: [{
+    id: { type: String },
     skill: { type: String, lowercase: true, trim: true },
     experience: {
       month: { type: Number },
@@ -170,10 +173,10 @@ const candidateSchema = new Schema({
       courseName: { type: String, trim: true },
       startDate: { type: Date },
       endDate: { type: Date },
-      courseCompletion: {
-        month: {type: Number},
-        year: {type: Number},
-      },
+      // courseCompletion: {
+      //   month: {type: Number},
+      //   year: {type: Number},
+      // },
       isOngoing: { type: Boolean },
       gpa: { type: Number },
       city: { type: String, trim: true },
@@ -191,21 +194,24 @@ const candidateSchema = new Schema({
 
     }
   ],
+
   experiences: [
     {
-      jobTitle: { type: String, trim: true },          // Job title
-      employer: { type: String, trim: true },          // Company name
-      employmentType: { type: String, trim: true },    // Full-time, Part-time, etc.
-      industryType: { type: String, trim: true },      // Industry type
-      periodFrom: { type: Date },                      // Start date
-      periodTo: { type: Date },                        // End date
-      isOngoing: { type: Boolean, default: false },   // If currently working
-      noticePeriod: { type: String, trim: true },     // Notice period (e.g., "2 months")
-      location: { type: String, trim: true },         // Office location
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, // Auto ObjectId
+      jobTitle: { type: String, trim: true },
+      employer: { type: String, trim: true },
+      employmentType: { type: String, trim: true },
+      industryType: { type: String, trim: true },
+      periodFrom: { type: Date },
+      periodTo: { type: Date },
+      isOngoing: { type: Boolean, default: false },
+      noticePeriod: { type: String, trim: true },
+      location: { type: String, trim: true },
       city: { type: String, trim: true },
       state: { type: String, trim: true },
       country: { type: String, trim: true },
-      description: { type: String, trim: true }       // Job description / responsibilities
+      description: { type: String, trim: true },
+      isFresher: { type: Boolean, default: false }
     }
   ],
 
@@ -215,7 +221,6 @@ const candidateSchema = new Schema({
       organization: { type: String, trim: true },
       periodFrom: { type: Date },
       periodTo: { type: Date },
-      location: { type: String, trim: true },
       description: { type: String, trim: true },
       link: { type: String, trim: true }
     }
@@ -351,6 +356,7 @@ candidateSchema.pre('findOneAndUpdate', async function(next) {
 candidateSchema.post('init', function(doc) { doc.score = calculateWeightedScore(doc); });
 candidateSchema.post('find', function(docs) { docs.forEach(d => d.score = calculateWeightedScore(d)); });
 candidateSchema.post('findOne', function(doc) { if (doc) doc.score = calculateWeightedScore(doc); });
+
 
 
 const Candidate = mongoose.model('candidate-portal-v1-candidate', candidateSchema);
