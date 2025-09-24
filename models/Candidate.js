@@ -126,7 +126,7 @@ const candidateSchema = new Schema({
     amount: { type: Number }
   },
   noticePeriod: { type: String, lowercase: true, trim: true, enum: ["immediate joiner", "currently serving notice period", "7 days", "15 days", "30 days", "45 days", "60 days", "90 days"] },
-  negotiableNoticePeriod: { type: String, lowercase: true, trim: true, enum: ["immediate joiner", "currently serving notice period", "7 days", "15 days", "30 days", "45 days", "60 days", "90 days"] },
+  negotiableNoticePeriod: { type: String, lowercase: true, trim: true, enum: ["","immediate joiner", "currently serving notice period", "7 days", "15 days", "30 days", "45 days", "60 days", "90 days"] , default :"no"},
   isPreferredInformation: { type: Boolean, default: false },
 
 
@@ -221,8 +221,10 @@ const candidateSchema = new Schema({
       organization: { type: String, trim: true },
       periodFrom: { type: Date },
       periodTo: { type: Date },
+      isProcessing : {type : Boolean , default : false},
       description: { type: String, trim: true },
-      link: { type: String, trim: true }
+      link: { type: String, trim: true },
+      mode: { type: String, enum: ["online", "offline"], trim: true, lowercase: true }
     }
   ],
 
