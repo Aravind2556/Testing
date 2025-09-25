@@ -459,7 +459,7 @@ summaryRouter.post('/candidate-certificate', isAuth , async (req,res) => {
                     mode: certificate.mode.trim().toLowerCase(),
                     periodTo: periodTo,
                     periodFrom: periodFrom,
-                    isProcessing: certificate.isOngoing,                 
+                    isProcessing: certificate.isProcessing,                 
                     description: certificate.description || "",                    
                 });
             }
@@ -471,15 +471,491 @@ summaryRouter.post('/candidate-certificate', isAuth , async (req,res) => {
         }     
     }
     catch (err) {
-        console.log("Error in /perferredinfromation route", err);
-        return res.status(500).json({ success: false, message: "Internal server error while saving preferred information" });
+        console.log("Error in /candidate-certificate route", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate certificate" });
+    }
+})
+
+// candidate experience update completed
+summaryRouter.put('/candidate-certificate/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        const { certifications } = req.body;
+        console.log("certifications", certifications , id);
+        if (!id || !certifications) {
+            return res.send({ success: false, message: "All field are required pleade try agin later" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        if (certifications && certifications.length > 0) {
+            const expToUpdate = existingCandidate.certifications.id(id); // Mongoose subdocument find
+            if (!expToUpdate) {
+                return res.status(404).json({ success: false, message: "Certificate not found" });
+            }
+
+            const exp = certifications[0]; // Assuming only 1 object sent for update
+
+            // Validation check
+            if (!exp.certificationName || !exp.organization || !exp.mode) {
+                return res.json({ success: false, message: "All mandatory fields are required!" });
+            }
+
+            // 🔹 Format periodFrom
+            const yearFrom = exp.periodFrom[0];
+            const monthFrom = exp.periodFrom[1] || "01";
+            const dayFrom = exp.periodFrom[2] || "01";
+            const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
+
+            let periodTo = null;
+            if (exp.isProcessing === false) {
+                if (!exp.periodTo[0]) {
+                    return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                }
+                const yearTo = exp.periodTo[0];
+                const monthTo = exp.periodTo[1] || "01";
+                const dayTo = exp.periodTo[2] || "01";
+                periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+            }
+            // Update fields
+            expToUpdate.certificationName = exp.certificationName.trim().toLowerCase();
+            expToUpdate.organization = exp.organization.trim().toLowerCase();
+            expToUpdate.mode = exp.mode.trim().toLowerCase();
+            expToUpdate.link = exp.link;
+            expToUpdate.periodFrom = periodFrom;
+            expToUpdate.periodTo = periodTo;
+            expToUpdate.isProcessing = exp.isProcessing;      
+            expToUpdate.description = exp.description || "";
+
+            await existingCandidate.save();
+            return res.json({ success: true, message: "Certificate updated successfully" });
+        }
+        else {
+            return res.json({ success: false, message: "Certificate are required please try gain later!" })
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate Certificate", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate Certificate" });
+    }
+})
+
+// candidate experience delete  completed
+summaryRouter.delete('/candidate-certificate-delete/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!id) {
+            return res.send({ success: false, message: "" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+        // ---------- DELETE EXPERIENCE ----------
+        const cerIndex = existingCandidate.certifications.findIndex(cer => cer._id.toString() === id);
+        if (cerIndex === -1) {
+            return res.status(404).json({ success: false, message: "Experience not found" });
+        }
+
+        existingCandidate.certifications.splice(cerIndex, 1); // remove experience
+        const deleteCertifications = await existingCandidate.save();
+        if (!deleteCertifications) {
+            return res.status(200).json({ success: true, message: "Faild to delete certificate please try agin later!" });
+        }
+        else {
+            return res.status(200).json({ success: true, message: "certificate deleted successfully!" });
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate experience", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate experience" });
     }
 })
 
 
+// candidate create projects  completed
+summaryRouter.post('/candidate-projects', isAuth, async (req, res) => {
+    try {
+        const { projects } = req.body
+        console.log("projects", projects)
+        //Session check
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        //Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+        //User existence check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        //Candidate existence check
+        const candidateData = await candidate.findOne({ user: userId });
+        if (!candidateData) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+        if (projects && projects.length > 0) {
+            const formatProjects = [];
+            for (const project of projects) {
+                // 🔹 Validation check
+                if (!project.projectName || !project.clientName || !project.periodFrom[0] || !project.role) {
+                    return res.json({ success: false, message: "All mandatory fields are required!" });
+                }
+                // 🔹 Format periodFrom
+                const yearFrom = project.periodFrom[0];
+                const monthFrom = project.periodFrom[1] || "01";
+                const dayFrom = project.periodFrom[2] || "01";
+                const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
+
+                let periodTo = null;
+                if (project.isProcessing === false) {
+                    if (!project.periodTo[0]) {
+                        return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                    }
+                    const yearTo = project.periodTo[0];
+                    const monthTo = project.periodTo[1] || "01";
+                    const dayTo = project.periodTo[2] || "01";
+                    periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+                }
+                formatProjects.push({
+                    projectName: project.projectName.trim().toLowerCase(),
+                    clientName: project.clientName.trim().toLowerCase(),
+                    role: project.role.trim().toLowerCase(),
+                    periodTo: periodTo,
+                    periodFrom: periodFrom,
+                    isProcessing: project.isProcessing,
+                    description: project.description || "",
+                });
+            }
+            //DB save logic (spread operator so array not nested)
+            candidateData.projects.push(...formatProjects);
+            await candidateData.save();
+
+            return res.json({ success: true, message: "Projects saved successfully" });
+        }
+    }
+    catch (err) {
+        console.log("Error in /candidate-Project route", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate projects" });
+    }
+})
+
+// candidate projects update completed
+summaryRouter.put('/candidate-projects/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        const { projects } = req.body;
+        console.log("certifications", projects, id);
+        if (!id || !projects) {
+            return res.send({ success: false, message: "All field are required pleade try agin later" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        if (projects && projects.length > 0) {
+            const expToUpdate = existingCandidate.projects.id(id); // Mongoose subdocument find
+            if (!expToUpdate) {
+                return res.status(404).json({ success: false, message: "Projects not found" });
+            }
+
+            const exp = projects[0]; // Assuming only 1 object sent for update
+
+            // Validation check
+            if (!exp.projectName || !exp.clientName || !exp.role) {
+                return res.json({ success: false, message: "All mandatory fields are required!" });
+            }
+
+            // 🔹 Format periodFrom
+            const yearFrom = exp.periodFrom[0];
+            const monthFrom = exp.periodFrom[1] || "01";
+            const dayFrom = exp.periodFrom[2] || "01";
+            const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
+
+            let periodTo = null;
+            if (exp.isProcessing === false) {
+                if (!exp.periodTo[0]) {
+                    return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                }
+                const yearTo = exp.periodTo[0];
+                const monthTo = exp.periodTo[1] || "01";
+                const dayTo = exp.periodTo[2] || "01";
+                periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+            }
+            // Update fields
+            expToUpdate.projectName = exp.projectName.trim().toLowerCase();
+            expToUpdate.clientName = exp.clientName.trim().toLowerCase();
+            expToUpdate.role = exp.role.trim().toLowerCase();
+            expToUpdate.location = exp.location;
+            expToUpdate.periodFrom = periodFrom;
+            expToUpdate.periodTo = periodTo;
+            expToUpdate.isProcessing = exp.isProcessing;
+            expToUpdate.description = exp.description || "";
+
+            await existingCandidate.save();
+            return res.json({ success: true, message: "Projects updated successfully" });
+        }
+        else {
+            return res.json({ success: false, message: "Projets are required please try gain later!" })
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate Update projects", err);
+        return res.status(500).json({ success: false, message: "Internal server error while updating candidate projects" });
+    }
+})
 
 
+// candidate experience delete  completed
+summaryRouter.delete('/candidate-projects-delete/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!id) {
+            return res.send({ success: false, message: "" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
 
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+        // ---------- DELETE EXPERIENCE ----------
+        const proIndex = existingCandidate.projects.findIndex(pro => pro._id.toString() === id);
+        if (proIndex === -1) {
+            return res.status(404).json({ success: false, message: "Experience not found" });
+        }
+
+        existingCandidate.projects.splice(proIndex, 1); // remove experience
+        const deleteProjects = await existingCandidate.save();
+        if (!deleteProjects) {
+            return res.status(200).json({ success: true, message: "Faild to delete Projects please try agin later!" });
+        }
+        else {
+            return res.status(200).json({ success: true, message: "projects delete successfully!" });
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate delete Projects", err);
+        return res.status(500).json({ success: false, message: "Internal server error while delete candidate projects" });
+    }
+})
+
+
+// candidate create projects  completed
+summaryRouter.post('/candidate-social', isAuth, async (req, res) => {
+    try {
+        const { social } = req.body
+        console.log("projects", social)
+        //Session check
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        //Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+        //User existence check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        //Candidate existence check
+        const candidateData = await candidate.findOne({ user: userId });
+        if (!candidateData) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+        if (social && social.length > 0) {
+            const formatSocial = [];
+            for (const soc of social) {
+                // 🔹 Validation check
+                if (!soc.socialName) {
+                    return res.json({ success: false, message: "All mandatory fields are required!" });
+                }
+
+                formatSocial.push({
+                    socialName: soc.socialName.trim().toLowerCase(),
+                    url: soc.url,
+                    description: soc.description || "",
+                });
+            }
+            //DB save logic (spread operator so array not nested)
+            candidateData.socialProfiles.push(...formatSocial);
+            await candidateData.save();
+
+            return res.json({ success: true, message: "Social Profiles saved successfully" });
+        }
+    }
+    catch (err) {
+        console.log("Error in /candidate-socila route", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate Social Profiles" });
+    }
+})
+
+
+// candidate projects update completed
+summaryRouter.put('/candidate-social/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        const { social } = req.body;
+        console.log("certifications", social, id);
+        if (!id || !social) {
+            return res.send({ success: false, message: "All field are required pleade try agin later" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        if (social && social.length > 0) {
+            const expToUpdate = existingCandidate.socialProfiles.id(id); // Mongoose subdocument find
+            if (!expToUpdate) {
+                return res.status(404).json({ success: false, message: "Projects not found" });
+            }
+
+            const exp = social[0]; // Assuming only 1 object sent for update
+
+            // Validation check
+            if (!exp.socialName) {
+                return res.json({ success: false, message: "All mandatory fields are required!" });
+            }
+
+            // Update fields
+            expToUpdate.socialName = exp.socialName.trim().toLowerCase();
+            expToUpdate.url = exp.url;
+            expToUpdate.description = exp.description || "";
+
+            await existingCandidate.save();
+            return res.json({ success: true, message: "Socila Profile updated successfully" });
+        }
+        else {
+            return res.json({ success: false, message: "Socila Profile are required please try gain later!" })
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate Update Socila Profile", err);
+        return res.status(500).json({ success: false, message: "Internal server error while updating candidate Socila Profile" });
+    }
+})
+
+
+// candidate experience delete  completed
+summaryRouter.delete('/candidate-social-delete/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        if (!id) {
+            return res.send({ success: false, message: "" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+        // ---------- DELETE EXPERIENCE ----------
+        const socIndex = existingCandidate.socialProfiles.findIndex(soc => soc._id.toString() === id);
+        if (socIndex === -1) {
+            return res.status(404).json({ success: false, message: "Experience not found" });
+        }
+
+        existingCandidate.socialProfiles.splice(socIndex, 1); // remove experience
+        const deleteSocialProfiles = await existingCandidate.save();
+        if (!deleteSocialProfiles) {
+            return res.status(200).json({ success: true, message: "Faild to delete social profiles please try agin later!" });
+        }
+        else {
+            return res.status(200).json({ success: true, message: "Social profiles delete successfully!" });
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate delete social profiles", err);
+        return res.status(500).json({ success: false, message: "Internal server error while delete candidate social profiles" });
+    }
+})
 
 
 
@@ -665,6 +1141,8 @@ summaryRouter.get('/fetch-information', async (req, res) => {
         const candidatePrimarySkills = candidateInformation.primarySkills || [];
         const candidateScore = candidateInformation.score || "";
         const candidateCertificates = candidateInformation.certifications || [];
+        const candidateProjects = candidateInformation.projects || []
+        const candidateSocilaProfile = candidateInformation.socialProfiles || []
 
 
         return res.json({
@@ -675,7 +1153,9 @@ summaryRouter.get('/fetch-information', async (req, res) => {
             candidateSkills,
             candidatePrimarySkills,
             candidateScore,
-            candidateCertificates
+            candidateCertificates,
+            candidateProjects,
+            candidateSocilaProfile
         });
 
     } catch (err) {

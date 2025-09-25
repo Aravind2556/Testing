@@ -36,12 +36,12 @@ const twelveHours = 1000 * 60 * 60 * 12;
 
 
 const corsOption = {
-    origin: [`https://careerconnectai.com`, `https://san-portal.vercel.app`, 'http://localhost:3000', 'http://localhost:3001', 'http://192.168.0.31:3000', 'https://dkgsdb5n-3000.inc1.devtunnels.ms', 'https://candidate-portal.vercel.app'],
+    origin: [`https://careerconnectai.com`, `https://san-portal.vercel.app`, 'http://localhost:3000', 'http://localhost:3001', 'http://192.168.0.31:3000', 'https://dkgsdb5n-3000.inc1.devtunnels.ms', 'https://candidate-portal.vercel.app',"https://whl9fdg2-3000.inc1.devtunnels.ms"],
     credentials: true
 }
 
 app.use(cors(corsOption)); 
-app.options('*', cors(corsOption));
+app.options('*', cors(corsOption)); 
 
 app.use(Express.json({limit: '50mb'}));
 app.use(Express.urlencoded({ limit: '50mb', extended: true }));

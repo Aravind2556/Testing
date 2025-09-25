@@ -197,7 +197,7 @@ const candidateSchema = new Schema({
 
   experiences: [
     {
-      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, // Auto ObjectId
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
       jobTitle: { type: String, trim: true },
       employer: { type: String, trim: true },
       employmentType: { type: String, trim: true },
@@ -217,6 +217,7 @@ const candidateSchema = new Schema({
 
   certifications: [
     {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, 
       certificationName: { type: String, trim: true },
       organization: { type: String, trim: true },
       periodFrom: { type: Date },
@@ -230,6 +231,7 @@ const candidateSchema = new Schema({
 
   projects: [
     {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, 
       projectName: { type: String, trim: true },
       clientName: { type: String, trim: true },
       periodFrom: { type: Date },
@@ -237,13 +239,14 @@ const candidateSchema = new Schema({
       location: { type: String, trim: true },
       description: { type: String, trim: true },
       role: { type: String, trim: true },
+      isProcessing: { type: Boolean, default: false },
     }
   ],
 
-
   socialProfiles: [
     {
-      name: { type: String, trim: true },
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+      socialName: { type: String, trim: true },
       url: { type: String, trim: true, lowercase: true },
       description: { type: String, trim: true },
     }
