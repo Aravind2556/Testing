@@ -407,7 +407,7 @@ summaryRouter.post('/perferredinfromation', isAuth, async (req, res) => {
 });
 
 // candidate create certificate 
-summaryRouter.post('/candidate-certificate' , isAuth , async (req,res) => {
+summaryRouter.post('/candidate-certificate', isAuth , async (req,res) => {
     try{
         const {certifications} = req.body
         console.log("certifications", certifications)
@@ -429,8 +429,46 @@ summaryRouter.post('/candidate-certificate' , isAuth , async (req,res) => {
         if (!candidateData) {
             return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
         }
-        
+        if (certifications && certifications.length > 0){
+            const formatCertifications = [];
+            for (const certificate of certifications){
+                // 🔹 Validation check
+                if (!certificate.certificationName || !certificate.organization || !certificate.periodFrom[0] || !certificate.mode) {
+                    return res.json({ success: false, message: "All mandatory fields are required!"});
+                }
+                // 🔹 Format periodFrom
+                const yearFrom = certificate.periodFrom[0];
+                const monthFrom = certificate.periodFrom[1] || "01";
+                const dayFrom = certificate.periodFrom[2] || "01";
+                const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
 
+                let periodTo = null;
+                if (certificate.isProcessing === false) {
+                    if (!certificate.periodTo[0]) {
+                        return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                    }
+                    const yearTo = certificate.periodTo[0];
+                    const monthTo = certificate.periodTo[1] || "01";
+                    const dayTo = certificate.periodTo[2] || "01";
+                    periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+                }
+
+                formatCertifications.push({
+                    certificationName: certificate.certificationName.trim().toLowerCase(),
+                    organization: certificate.organization.trim().toLowerCase(),
+                    mode: certificate.mode.trim().toLowerCase(),
+                    periodTo: periodTo,
+                    periodFrom: periodFrom,
+                    isProcessing: certificate.isOngoing,                 
+                    description: certificate.description || "",                    
+                });
+            }
+            //DB save logic (spread operator so array not nested)
+            candidateData.certifications.push(...formatCertifications);
+            await candidateData.save();
+
+            return res.json({ success: true, message: "Certificate saved successfully"});
+        }     
     }
     catch (err) {
         console.log("Error in /perferredinfromation route", err);
