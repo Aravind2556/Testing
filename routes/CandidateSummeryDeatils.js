@@ -5,6 +5,7 @@ const candidate = require('../models/Candidate');
 const isAuth = require("../middleware/isAuth");
 const userModel = require("../models/User")
 const validatePreferredJobForm = require('../utils/validator/preferredValidator')
+const Skill = require('../models/Skills')
 
 // 🔹 Route to handle summary information submission Completed
 summaryRouter.post("/summerinfromation",isAuth, async (req, res) => {
@@ -602,7 +603,6 @@ summaryRouter.delete('/candidate-certificate-delete/:id', isAuth, async (req, re
     }
 })
 
-
 // candidate create projects  completed
 summaryRouter.post('/candidate-projects', isAuth, async (req, res) => {
     try {
@@ -752,7 +752,6 @@ summaryRouter.put('/candidate-projects/:id', isAuth, async (req, res) => {
     }
 })
 
-
 // candidate experience delete  completed
 summaryRouter.delete('/candidate-projects-delete/:id', isAuth, async (req, res) => {
     try {
@@ -798,7 +797,6 @@ summaryRouter.delete('/candidate-projects-delete/:id', isAuth, async (req, res) 
         return res.status(500).json({ success: false, message: "Internal server error while delete candidate projects" });
     }
 })
-
 
 // candidate create projects  completed
 summaryRouter.post('/candidate-social', isAuth, async (req, res) => {
@@ -849,7 +847,6 @@ summaryRouter.post('/candidate-social', isAuth, async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal server error while saving candidate Social Profiles" });
     }
 })
-
 
 // candidate projects update completed
 summaryRouter.put('/candidate-social/:id', isAuth, async (req, res) => {
@@ -910,7 +907,6 @@ summaryRouter.put('/candidate-social/:id', isAuth, async (req, res) => {
     }
 })
 
-
 // candidate experience delete  completed
 summaryRouter.delete('/candidate-social-delete/:id', isAuth, async (req, res) => {
     try {
@@ -957,10 +953,591 @@ summaryRouter.delete('/candidate-social-delete/:id', isAuth, async (req, res) =>
     }
 })
 
+// candidate create Education completed
+summaryRouter.post('/candidate-education' , isAuth , async (req,res) => {
+    try{
+        const { education } = req.body
+        console.log("education" ,education)
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        if (education && education.length > 0) {
+            const formatEducation = [];
+
+            for (const edu of education) {
+                // 🔹 Validation check
+                if (!edu.institutionName || !edu.courseCategory || !edu.periodFrom[0] || !edu.courseType || !edu.grade || !edu.city || !edu.mode) {
+                    return res.json({ success: false, message: "All mandatory fields are required!" });
+                }
+
+                // 🔹 Format periodFrom
+                const yearFrom = edu.periodFrom[0];
+                const monthFrom = edu.periodFrom[1] || "01";
+                const dayFrom = edu.periodFrom[2] || "01";
+                const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
+
+                let periodTo = null;
+                if (edu.isOngoing === false) {
+                    if (!edu.periodTo[0]) {
+                        return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                    }
+                    const yearTo = edu.periodTo[0];
+                    const monthTo = edu.periodTo[1] || "01";
+                    const dayTo = edu.periodTo[2] || "01";
+                    periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+                }
+
+                formatEducation.push({
+                    courseCategory: edu.courseCategory.trim().toLowerCase(),
+                    courseType: edu.courseType.trim().toLowerCase(),
+                    courseName: edu.courseName || "",
+                    institutionName: edu.institutionName.trim().toLowerCase(),
+                    endDate: periodTo,
+                    startDate: periodFrom,
+                    isOngoing: edu.isOngoing,
+                    mode : edu.mode,
+                    grade: {
+                        type: edu.grade.type.trim().toLowerCase() && edu.grade.type.trim().toLowerCase() || "",
+                        value: Number(edu.grade.value) || ""
+                    },
+                    mode: edu.mode || "",
+                    location: edu.location || "", 
+                    city: edu.city.trim().toLowerCase(),                                
+                    state: edu.state || "",
+                    country: edu.country || "",
+                    zipCode: edu.zipCode || "" ,
+                    description: edu.description || "",                                       
+                });
+            }
+
+            //DB save logic (spread operator so array not nested)
+            existingCandidate.educations.push(...formatEducation);
+            await existingCandidate.save();
+
+            return res.json({ success: true, message: "Education saved successfully" });
+        } else {
+            return res.json({ success: false, message: "Education data is required!" });
+        }
+
+    }
+    catch(err){
+        console.log("Error in candidate create education" ,err)
+        return res.status(500).json({ success: false, message: "Internal server error while delete candidate education" });
+    }
+})
+
+// candidate experience update completed
+summaryRouter.put('/candidate-education/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        const { education } = req.body;
+        console.log("education", education, id);
+        if (!id || !education) {
+            return res.send({ success: false, message: "All field are required pleade try agin later" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        if (education && education.length > 0) {
+            const eduToUpdate = existingCandidate.educations.id(id); // Mongoose subdocument find
+            if (!eduToUpdate) {
+                return res.status(404).json({ success: false, message: "Experience not found" });
+            }
+
+            const edu = education[0]; // Assuming only 1 object sent for update
+
+            // Validation check
+            if (!edu.courseCategory || !edu.courseType || !edu.periodFrom[0] || !edu.city || !edu.mode || !edu.grade || !edu.institutionName) {
+                return res.json({ success: false, message: "All mandatory fields are required!" });
+            }
+
+            // 🔹 Format periodFrom
+            const yearFrom = edu.periodFrom[0];
+            const monthFrom = edu.periodFrom[1] || "01";
+            const dayFrom = edu.periodFrom[2] || "01";
+            const periodFrom = new Date(`${yearFrom}-${monthFrom.padStart(2, "0")}-${dayFrom.padStart(2, "0")}`);
+
+            let periodTo = null;
+            if (edu.isOngoing === false) {
+                if (!edu.periodTo[0]) {
+                    return res.json({ success: false, message: "Period To is required if not ongoing!" });
+                }
+                const yearTo = edu.periodTo[0];
+                const monthTo = edu.periodTo[1] || "01";
+                const dayTo = edu.periodTo[2] || "01";
+                periodTo = new Date(`${yearTo}-${monthTo.padStart(2, "0")}-${dayTo.padStart(2, "0")}`);
+            }
+
+            // Update fields
+            eduToUpdate.institutionName = edu.institutionName.trim().toLowerCase();
+            eduToUpdate.courseCategory = edu.courseCategory.trim().toLowerCase();
+            eduToUpdate.courseType = edu.courseType.trim().toLowerCase();
+            eduToUpdate.courseName = edu.courseName;            
+            eduToUpdate.startDate = periodFrom;
+            eduToUpdate.endDate = periodTo;
+            eduToUpdate.mode = edu.mode.trim().toLowerCase();            
+            eduToUpdate.isOngoing = edu.isOngoing;
+            eduToUpdate.grade = edu.grade
+            eduToUpdate.location = edu.location || "";
+            eduToUpdate.city = edu.city.trim().toLowerCase();
+            eduToUpdate.state = edu.state || "";
+            eduToUpdate.country = edu.country || "";
+            eduToUpdate.zipCode = edu.zipCode || "";
+            eduToUpdate.description = edu.description || "";
+
+            await existingCandidate.save();
+            return res.json({ success: true, message: "Education updated successfully" });
+        }
+        else {
+            return res.json({ success: false, message: "Education are required please try gain later!" })
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate education", err);
+        return res.status(500).json({ success: false, message: "Internal server error while saving candidate education" });
+    }
+})
+
+// candidate experience delete  completed
+summaryRouter.delete('/candidate-education-delete/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params
+        console.log("id",id)
+        if (!id) {
+            return res.send({ success: false, message: "" })
+        }
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        // Role check
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // DB check
+        const userId = await userModel.findOne({ id: req.session.user.id });
+        if (!userId) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const existingCandidate = await candidate.findOne({ user: userId });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+        // ---------- DELETE EXPERIENCE ----------
+        const eduIndex = existingCandidate.educations.findOne(edu => edu._id.toString() === id);
+        if (eduIndex === -1) {
+            return res.status(404).json({ success: false, message: "Experience not found" });
+        }
+
+        existingCandidate.educations.splice(eduIndex, 1); // remove education
+        const deleteEducationProfiles = await existingCandidate.save();
+        if (!deleteEducationProfiles) {
+            return res.status(200).json({ success: true, message: "Faild to delete education please try agin later!" });
+        }
+        else {
+            return res.status(200).json({ success: true, message: "Education delete successfully!" });
+        }
+    }
+    catch (err) {
+        console.log("Error in Candidate delete education", err);
+        return res.status(500).json({ success: false, message: "Internal server error while delete candidate education"});
+    }
+})
+
+// helper
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// candidate skills create delete  completed
+summaryRouter.post('/candidate-skills', isAuth, async (req, res) => {
+    try {
+        const { skills } = req.body;
+        // expected shape from client:
+        // skills = {
+        //   skills: "React",
+        //   experience: [{ month: 1, year: 2020 }],   // optional array
+        //   lastUsed: 2025,                           // optional
+        //   version: "18.2",                          // optional
+        //   isPrimary: true|false
+        // }
+
+        // Basic validation
+        if (!skills || !skills.skills || String(skills.skills).trim() === "") {
+            return res.status(400).json({ success: false, message: "Skill name is required." });
+        }
+
+        // Session + role checks
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // Find user doc
+        const userDoc = await userModel.findOne({ id: req.session.user.id });
+        if (!userDoc) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Find candidate profile
+        const existingCandidate = await candidate.findOne({ user: userDoc._id });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        // Normalize incoming name
+        const incomingSkillName = String(skills.skills).trim();
+        const skillRegex = new RegExp(`^${escapeRegExp(incomingSkillName)}$`, "i");
+
+        // Find or create master skill (case-insensitive)
+        let masterSkill = await Skill.findOne({ skillName: skillRegex });
+        if (!masterSkill) {
+            masterSkill = new Skill({ skillName: incomingSkillName.toLowerCase() });
+            await masterSkill.save();
+        }
+
+        // Ensure arrays exist
+        existingCandidate.skills = Array.isArray(existingCandidate.skills) ? existingCandidate.skills : [];
+
+
+        // Compare candidate.skills by s.skill (your schema)
+        const skillIdx = existingCandidate.skills.findIndex(
+            (s) => s.skill && String(s.skill).trim().toLowerCase() === incomingSkillName.toLowerCase()
+        );
+
+        const isPrimaryFlag = !!skills.isPrimary;
+
+        // Build experience object from incoming array (use first item if provided)
+        const incomingExp = Array.isArray(skills.experience) && skills.experience.length > 0
+            ? skills.experience[0]
+            : null;
+
+        const expObj = {
+            month: incomingExp && incomingExp.month ? Number(incomingExp.month) : undefined,
+            year: incomingExp && incomingExp.year ? Number(incomingExp.year) : undefined,
+        };
+
+        // === CASE: isPrimary === true (allow multiple primaries) ===
+        if (isPrimaryFlag) {
+            // IMPORTANT: do NOT unset other isPrimary flags — since you want multiple primary skills.
+            // Update or add candidate.skills entry and mark this one as primary
+            if (skillIdx > -1) {
+                existingCandidate.skills[skillIdx] = {
+                    ...existingCandidate.skills[skillIdx],
+                    masterSkillId: masterSkill._id.toString(),
+                    skill: incomingSkillName.toLowerCase(),
+                    experience: {
+                        month: expObj.month ?? existingCandidate.skills[skillIdx].experience?.month,
+                        year: expObj.year ?? existingCandidate.skills[skillIdx].experience?.year
+                    },
+                    lastUsed: skills.lastUsed ? Number(skills.lastUsed) : existingCandidate.skills[skillIdx].lastUsed,
+                    version: skills.version ?? existingCandidate.skills[skillIdx].version,
+                    isPrimary: true
+                };
+            } else {
+                existingCandidate.skills.push({
+                    masterSkillId: masterSkill._id.toString(),
+                    skill: incomingSkillName.toLowerCase(),
+                    experience: {
+                        month: expObj.month,
+                        year: expObj.year
+                    },
+                    lastUsed: skills.lastUsed ? Number(skills.lastUsed) : undefined,
+                    version: skills.version ? String(skills.version) : undefined,
+                    isPrimary: true
+                });
+            }
+
+            await existingCandidate.save();
+            return res.json({ success: true, message: "Primary skill added to your profile." });
+        }
+
+
+        // === CASE: isPrimary === false ===
+        // If skill already exists in candidate.skills -> duplicate
+        if (skillIdx > -1) {
+            return res.status(400).json({ success: false, message: "Skill already exists in your profile. Choose another skill." });
+        }
+
+        // Add new non-primary skill
+        const newSkillEntry = {
+            masterSkillId: masterSkill._id.toString(),
+            skill: incomingSkillName.toLowerCase(),
+            experience: {
+                month: expObj.month,
+                year: expObj.year
+            },
+            lastUsed: skills.lastUsed ? Number(skills.lastUsed) : undefined,
+            version: skills.version ? String(skills.version) : undefined,
+            isPrimary: false
+        };
+
+        existingCandidate.skills.push(newSkillEntry);
+        await existingCandidate.save();
+        return res.json({ success: true, message: "Skill added to profile", skill: newSkillEntry });
+
+    } catch (err) {
+        console.error("Error in candidate-skills route:", err);
+        return res.status(500).json({ success: false, message: "Internal server error while updating candidate skills" });
+    }
+});
+
+// candidate skills  delete  completed
+summaryRouter.delete('/candidate-delete-skill/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, message: "Skill id is required." });
+        }
+
+        // Session + role checks
+        if (!req.session || !req.session.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+        }
+
+        // Find user doc
+        const userDoc = await userModel.findOne({ id: req.session.user.id });
+        if (!userDoc) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        // Find candidate profile (use userDoc._id)
+        const existingCandidate = await candidate.findOne({ user: userDoc._id });
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+        }
+
+        // Ensure skills array exists
+        existingCandidate.skills = Array.isArray(existingCandidate.skills) ? existingCandidate.skills : [];
+
+        // Try find skill by subdoc _id
+        let foundIndex = existingCandidate.skills.findIndex(s => s._id && String(s._id) === String(id));
+
+        // If not found, try by masterSkillId
+        if (foundIndex === -1) {
+            foundIndex = existingCandidate.skills.findIndex(s => s.masterSkillId && String(s.masterSkillId) === String(id));
+        }
+
+        // If still not found, try by skill name (case-insensitive)
+        if (foundIndex === -1) {
+            const idLower = String(id).trim().toLowerCase();
+            foundIndex = existingCandidate.skills.findIndex(s => s.skill && String(s.skill).trim().toLowerCase() === idLower);
+        }
+
+        if (foundIndex === -1) {
+            return res.status(404).json({ success: false, message: "Skill not found in candidate profile." });
+        }
+
+        // Remove the skill from skills array
+        const removed = existingCandidate.skills.splice(foundIndex, 1)[0]
+
+        // Save candidate
+        await existingCandidate.save();
+
+        return res.json({
+            success: true,
+            message: "Skill removed from profile successfully.",
+            removedSkill: {
+                skill: removed.skill || null,
+                masterSkillId: removed.masterSkillId || null,
+                wasPrimary: !!removed.isPrimary
+            }
+        });
+    } catch (err) {
+        console.error("Error in candidate-delete-skills route:", err);
+        return res.status(500).json({ success: false, message: "Internal server error while deleting candidate skill" });
+    }
+});
+
+// candidate skills  Update
+// summaryRouter.put('/candidate-update-skill/:id' , isAuth , async (req,res)=>{
+// try{
+//     const {id}=req.params
+//     const {skills} = req.body
+//     console.log("skills" , skills , id)
+//     if(!id || !skills){
+//         return res.send({success : false , message : "All field are required Please try again later!"})
+//     }
+//     // Session + role checks
+//     if (!req.session || !req.session.user) {
+//         return res.status(401).json({ success: false, message: "Unauthorized" });
+//     }
+//     if (req.session.user.role !== "job-seeker") {
+//         return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+//     }
+
+//     // Find user doc
+//     const userDoc = await userModel.findOne({ id: req.session.user.id });
+//     if (!userDoc) {
+//         return res.status(404).json({ success: false, message: "User not found" });
+//     }
+
+//     // Find candidate profile (use userDoc._id)
+//     const existingCandidate = await candidate.findOne({ user: userDoc._id });
+//     if (!existingCandidate) {
+//         return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+//     }
 
 
 
 
+
+
+
+// }
+// catch(err){
+//     console.error("Error in candidate-update-skills route:", err);
+//     return res.status(500).json({ success: false, message: "Internal server error while update candidate skill" });
+// }
+// })
+
+// summaryRouter.put('/candidate-update-skill/:id', isAuth, async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const { skills } = req.body;
+
+//         if (!id || !skills) {
+//             return res.send({ success: false, message: "All fields are required!" });
+//         }
+
+//         if (!req.session || !req.session.user) {
+//             return res.status(401).json({ success: false, message: "Unauthorized" });
+//         }
+//         if (req.session.user.role !== "job-seeker") {
+//             return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+//         }
+
+//         // Find user doc
+//         const userDoc = await userModel.findOne({ id: req.session.user.id });
+//         if (!userDoc) return res.status(404).json({ success: false, message: "User not found" });
+
+//         // Find candidate
+//         const existingCandidate = await candidate.findOne({ user: userDoc._id });
+//         if (!existingCandidate)
+//             return res.status(400).json({ success: false, message: "Candidate profile does not exist." });
+
+
+//         // Loop through new skills
+//         skills.forEach((newSkill) => {
+//             const idx = existingCandidate.skills.findIndex(s => s.masterSkillId === newSkill.id);
+
+//             console.log("idx" ,idx)
+
+//             if (idx > -1) {
+//                 // Update existing skill
+//                 existingCandidate.skills[idx] = { ...existingCandidate.skills[idx], ...newSkill };
+//             } else {
+//                 // Add new skill
+//                 existingCandidate.skills.push(newSkill);
+//             }
+//         });
+
+//         // Ensure only one isPrimary: true
+//         let primarySet = false;
+//         existingCandidate.skills = existingCandidate.skills.map((s) => {
+//             if (s.isPrimary) {
+//                 if (!primarySet) {
+//                     primarySet = true;
+//                     return s;
+//                 } else {
+//                     return { ...s, isPrimary: false }; // turn off extra primary
+//                 }
+//             }
+//             return s;
+//         });
+
+//         await existingCandidate.save();
+
+//         return res.json({ success: true, message: "Skills updated successfully", skills: existingCandidate.skills });
+//     } catch (err) {
+//         console.error("Error in candidate-update-skills route:", err);
+//         return res.status(500).json({ success: false, message: "Internal server error while updating skills" });
+//     }
+// });
+
+summaryRouter.put('/candidate-update-skill/:id', isAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { skills: newSkills } = req.body;
+
+        console.log("skills", newSkills)
+
+        if (!id || !newSkills) {
+            return res.status(400).json({ success: false, message: "All fields are required!" });
+        }
+
+        // Auth & role checks
+        if (!req.session || !req.session.user) return res.status(401).json({ success: false, message: "Unauthorized" });
+        if (req.session.user.role !== "job-seeker") return res.status(403).json({ success: false, message: "Access denied" });
+
+        const userDoc = await userModel.findOne({ id: req.session.user.id });
+        if (!userDoc) return res.status(404).json({ success: false, message: "User not found" });
+
+        const existingCandidate = await candidate.findOne({ user: userDoc._id });
+        if (!existingCandidate) return res.status(400).json({ success: false, message: "Candidate profile does not exist." });
+
+        // Ensure newSkills is array
+        let updateSkills = Array.isArray(newSkills) ? newSkills : [newSkills];
+
+        updateSkills.forEach((newSkill) => {
+            const idx = existingCandidate.skills.findIndex(s => s.masterSkillId === id);
+
+            if (idx > -1) {
+                // Update only this skill
+                existingCandidate.skills[idx] = { ...existingCandidate.skills[idx]._doc, ...newSkill };
+
+            } else {
+                // Add new skill (masterSkillId included)
+                existingCandidate.skills.push(newSkill);
+            }
+        });
+
+        await existingCandidate.save();
+
+        return res.json({ success: true, message: "Skills updated successfully", skills: existingCandidate.skills });
+    } catch (err) {
+        console.error("Error in candidate-update-skills route:", err);
+        return res.status(500).json({ success: false, message: "Internal server error while updating skills" });
+    }
+});
 
 
 
@@ -1144,6 +1721,8 @@ summaryRouter.get('/fetch-information', async (req, res) => {
         const candidateProjects = candidateInformation.projects || []
         const candidateSocilaProfile = candidateInformation.socialProfiles || []
 
+        
+
 
         return res.json({
             success: true,
@@ -1163,6 +1742,31 @@ summaryRouter.get('/fetch-information', async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal server error while fetching candidate information" });
     }
 });
+
+summaryRouter.get('/fetch-skills', async (req, res) => {
+    try {
+        const skills = await Skill.find({}, { skillName: 1, _id: 0 });
+        // only skillName fetch
+        if (!skills || skills.length === 0) {
+            return res.json({success: false, message: "No skills found, please try again later" });
+        }
+        // skillName → { label, value }
+        const formattedSkills = skills.map(s => ({
+            label: s.skillName,
+            value: s.skillName
+        }));
+
+        return res.json({success: true,skills: formattedSkills});
+
+    } catch (err) {
+        console.log("Error in /fetch-skills route", err);
+        return res.status(500).json({success: false,message: "Internal server error while fetching skills"});
+    }
+});
+
+
+
+
 
 summaryRouter.post('/personalInfromation', async (req, res) => {
     try {

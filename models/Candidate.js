@@ -141,32 +141,35 @@ const candidateSchema = new Schema({
   lwd: { type: Date },
   
   primarySkills: [{
-    id : {type :String},
+    masterSkillId : {type : String},
     primarySkill: { type: String, lowercase: true, trim: true },
     experience: {
       month: { type: Number },
       year: { type: Number }
     },
     
-    lastUsed: { type: Number, trim: true },
+    lastUsed: { type: Number, trim: true},
     version: {type: String, trim: true}
   }],
 
   skills: [{
-    id: { type: String },
+    masterSkillId : {type : String},
     skill: { type: String, lowercase: true, trim: true },
     experience: {
       month: { type: Number },
       year: { type: Number }
     },
     lastUsed: { type: Number, trim: true },
-    version: {type: String, trim: true}
+    version: {type: String, trim: true},
+    isPrimary : {type : Boolean , default : false }
   }],
+
   resumeAvailable: { type: Boolean },
   resumeLink: { type: String, lowercase: true, trim: true },
   profilePicLink: { type: String, lowercase: true, trim: true },
   educations: [
     {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
       institutionName: { type: String, trim: true },
       courseCategory: { type: String, trim: true },
       courseType: { type: String, trim: true },
@@ -178,7 +181,6 @@ const candidateSchema = new Schema({
       //   year: {type: Number},
       // },
       isOngoing: { type: Boolean },
-      gpa: { type: Number },
       city: { type: String, trim: true },
       state: { type: String, trim: true },
       country: { type: String, trim: true },
@@ -187,11 +189,9 @@ const candidateSchema = new Schema({
 // New Add new structure for mark
       mode: {type : String , },
       grade : {
-        type: {type : String , enum : ["cgpa" , "percent"] ,lowercase : true , trim : true , default : "cgpa"},
+        type: { type: String, enum: ["cgpa", "percentage"] ,lowercase : true , trim : true , default : "cgpa"},
         value : {type : Number} 
       } 
-
-
     }
   ],
 
