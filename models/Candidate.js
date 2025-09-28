@@ -52,14 +52,16 @@ const fieldWeights = {
 };
 
 const candidateSchema = new Schema({
-  candidateID: {type: String, required: true, unique: true, lowercase: true, trim: true},
+  // candidateID: {type: String, required: true, unique: true, lowercase: true, trim: true},
   applicantID: { type: Number, unique: true, sparse: true },
-  user: { type: Schema.Types.ObjectId, ref: userModel },
+  applicantName: { type: String, trim: true },
+  applicantFullName: { type: String, trim: true },
+
+  user: { type: Schema.Types.ObjectId, ref: userModel }, 
   firstName: { type: String, trim: true },
   middleName: { type: String, trim: true },
   lastName: { type: String, trim: true },
-  applicantName: { type: String, trim: true },
-  applicantFullName: { type: String, trim: true },
+  fullName: { type: String, trim: true },
   emailAddress: { type: String, lowercase: true, trim: true, unique: true },
   alternateEmailAddress: { type: String, lowercase: true, trim: true },
   phoneNumber: {
@@ -72,37 +74,38 @@ const candidateSchema = new Schema({
   },
   gender: { type: String, lowercase: true, trim: true, enum: ["female", "male", "other"] },
   dateOfBirth: { type: Date },
-  disability: {
-    isDisabled: { type: Boolean, default: false },
-    desc: { type: String }
-  },
   maritalStatus: { type: String, lowercase: true, trim: true, enum: ["single", "married", "divorced", "widowed"] },
   languages: [
     {
-      name: { type: String },
+      language: { type: String },
       proficiency: { type: String, lowercase: true, trim: true, enum: ["beginner", "intermediate", "advanced"] },
       read: { type: Boolean },
       write: { type: Boolean },
       speak: { type: Boolean }
     }
   ],
+  disability: {
+    isDisabled: { type: Boolean, default: false },
+    desc: { type: String }
+  },
+
   profileSummary: { type: String },
   sameasPresentAddress : {type : Boolean , default : false},
   isSummeryInfromation: { type: Boolean, default: false },
   presentAddress: {
+    doorNumber : { type: String, trim: true },
     addressLine1: { type: String },
     addressLine2: { type: String },
     city: { type: String },
-    district: { type: String },
     state: { type: String },
     country: { type: String },
     zipCode: { type: Number }
   },
   permanentAddress: {
+    doorNumber: { type: String, trim: true },
     addressLine1: { type: String },
     addressLine2: { type: String },
     city: { type: String },
-    district: { type: String },
     state: { type: String },
     country: { type: String },
     zipCode: { type: Number }
@@ -123,7 +126,7 @@ const candidateSchema = new Schema({
     amount: { type: Number }
   },
   noticePeriod: { type: String, lowercase: true, trim: true, enum: ["immediate joiner", "currently serving notice period", "7 days", "15 days", "30 days", "45 days", "60 days", "90 days"] },
-  negotiableNoticePeriod: { type: String, lowercase: true, trim: true, enum: ["immediate joiner", "currently serving notice period", "7 days", "15 days", "30 days", "45 days", "60 days", "90 days"] },
+  negotiableNoticePeriod: { type: String, lowercase: true, trim: true, enum: ["","immediate joiner", "currently serving notice period", "7 days", "15 days", "30 days", "45 days", "60 days", "90 days"] , default :"no"},
   isPreferredInformation: { type: Boolean, default: false },
 
 
@@ -138,41 +141,46 @@ const candidateSchema = new Schema({
   lwd: { type: Date },
   
   primarySkills: [{
+    masterSkillId : {type : String},
     primarySkill: { type: String, lowercase: true, trim: true },
     experience: {
       month: { type: Number },
       year: { type: Number }
     },
-    lastUsed: { type: Number, trim: true },
+    
+    lastUsed: { type: Number, trim: true},
     version: {type: String, trim: true}
   }],
 
   skills: [{
+    masterSkillId : {type : String},
     skill: { type: String, lowercase: true, trim: true },
     experience: {
       month: { type: Number },
       year: { type: Number }
     },
     lastUsed: { type: Number, trim: true },
-    version: {type: String, trim: true}
+    version: {type: String, trim: true},
+    isPrimary : {type : Boolean , default : false }
   }],
+
   resumeAvailable: { type: Boolean },
   resumeLink: { type: String, lowercase: true, trim: true },
   profilePicLink: { type: String, lowercase: true, trim: true },
   educations: [
     {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
       institutionName: { type: String, trim: true },
       courseCategory: { type: String, trim: true },
       courseType: { type: String, trim: true },
       courseName: { type: String, trim: true },
       startDate: { type: Date },
       endDate: { type: Date },
-      courseCompletion: {
-        month: {type: Number},
-        year: {type: Number},
-      },
+      // courseCompletion: {
+      //   month: {type: Number},
+      //   year: {type: Number},
+      // },
       isOngoing: { type: Boolean },
-      gpa: { type: Number },
       city: { type: String, trim: true },
       state: { type: String, trim: true },
       country: { type: String, trim: true },
@@ -181,45 +189,49 @@ const candidateSchema = new Schema({
 // New Add new structure for mark
       mode: {type : String , },
       grade : {
-        type: {type : String , enum : ["cgpa" , "percent"] ,lowercase : true , trim : true , default : "cgpa"},
+        type: { type: String, enum: ["cgpa", "percentage"] ,lowercase : true , trim : true , default : "cgpa"},
         value : {type : Number} 
       } 
-
-
     }
   ],
+
   experiences: [
     {
-      jobTitle: { type: String, trim: true },          // Job title
-      employer: { type: String, trim: true },          // Company name
-      employmentType: { type: String, trim: true },    // Full-time, Part-time, etc.
-      industryType: { type: String, trim: true },      // Industry type
-      periodFrom: { type: Date },                      // Start date
-      periodTo: { type: Date },                        // End date
-      isOngoing: { type: Boolean, default: false },   // If currently working
-      noticePeriod: { type: String, trim: true },     // Notice period (e.g., "2 months")
-      location: { type: String, trim: true },         // Office location
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+      jobTitle: { type: String, trim: true },
+      employer: { type: String, trim: true },
+      employmentType: { type: String, trim: true },
+      industryType: { type: String, trim: true },
+      periodFrom: { type: Date },
+      periodTo: { type: Date },
+      isOngoing: { type: Boolean, default: false },
+      noticePeriod: { type: String, trim: true },
+      location: { type: String, trim: true },
       city: { type: String, trim: true },
       state: { type: String, trim: true },
       country: { type: String, trim: true },
-      description: { type: String, trim: true }       // Job description / responsibilities
+      description: { type: String, trim: true },
+      isFresher: { type: Boolean, default: false }
     }
   ],
 
   certifications: [
     {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, 
       certificationName: { type: String, trim: true },
       organization: { type: String, trim: true },
       periodFrom: { type: Date },
       periodTo: { type: Date },
-      location: { type: String, trim: true },
+      isProcessing : {type : Boolean , default : false},
       description: { type: String, trim: true },
-      link: { type: String, trim: true }
+      link: { type: String, trim: true },
+      mode: { type: String, enum: ["online", "offline"], trim: true, lowercase: true }
     }
   ],
 
   projects: [
     {
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true }, 
       projectName: { type: String, trim: true },
       clientName: { type: String, trim: true },
       periodFrom: { type: Date },
@@ -227,13 +239,14 @@ const candidateSchema = new Schema({
       location: { type: String, trim: true },
       description: { type: String, trim: true },
       role: { type: String, trim: true },
+      isProcessing: { type: Boolean, default: false },
     }
   ],
 
-
   socialProfiles: [
     {
-      name: { type: String, trim: true },
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+      socialName: { type: String, trim: true },
       url: { type: String, trim: true, lowercase: true },
       description: { type: String, trim: true },
     }
@@ -348,6 +361,7 @@ candidateSchema.pre('findOneAndUpdate', async function(next) {
 candidateSchema.post('init', function(doc) { doc.score = calculateWeightedScore(doc); });
 candidateSchema.post('find', function(docs) { docs.forEach(d => d.score = calculateWeightedScore(d)); });
 candidateSchema.post('findOne', function(doc) { if (doc) doc.score = calculateWeightedScore(doc); });
+
 
 
 const Candidate = mongoose.model('candidate-portal-v1-candidate', candidateSchema);
