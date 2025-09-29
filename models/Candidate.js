@@ -140,17 +140,6 @@ const candidateSchema = new Schema({
   noticePeriodServingDate: { type: Date },
   lwd: { type: Date },
   
-  primarySkills: [{
-    masterSkillId : {type : String},
-    primarySkill: { type: String, lowercase: true, trim: true },
-    experience: {
-      month: { type: Number },
-      year: { type: Number }
-    },
-    
-    lastUsed: { type: Number, trim: true},
-    version: {type: String, trim: true}
-  }],
 
   skills: [{
     masterSkillId : {type : String},

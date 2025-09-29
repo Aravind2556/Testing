@@ -11,10 +11,6 @@ const summeryValidator = (address) => {
         return errors.addressLine1 = "Address Line 1 invalid";
     }
 
-    if (address.addressLine2 && !/^[A-Za-z0-9\s,.-]{0,100}$/.test(address.addressLine2)) {
-        return errors.addressLine2 = "Address Line 2 invalid";
-    }
-
     if (!/^[0-9]{5,6}$/.test(address.zipCode || "")) {
         return errors.zipCode = "Zip Code invalid";
     }

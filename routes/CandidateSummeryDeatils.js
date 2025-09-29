@@ -1186,15 +1186,6 @@ function escapeRegExp(string) {
 summaryRouter.post('/candidate-skills', isAuth, async (req, res) => {
     try {
         const { skills } = req.body;
-        // expected shape from client:
-        // skills = {
-        //   skills: "React",
-        //   experience: [{ month: 1, year: 2020 }],   // optional array
-        //   lastUsed: 2025,                           // optional
-        //   version: "18.2",                          // optional
-        //   isPrimary: true|false
-        // }
-
         // Basic validation
         if (!skills || !skills.skills || String(skills.skills).trim() === "") {
             return res.status(400).json({ success: false, message: "Skill name is required." });
@@ -1387,155 +1378,52 @@ summaryRouter.delete('/candidate-delete-skill/:id', isAuth, async (req, res) => 
     }
 });
 
-// candidate skills  Update
-// summaryRouter.put('/candidate-update-skill/:id' , isAuth , async (req,res)=>{
-// try{
-//     const {id}=req.params
-//     const {skills} = req.body
-//     console.log("skills" , skills , id)
-//     if(!id || !skills){
-//         return res.send({success : false , message : "All field are required Please try again later!"})
-//     }
-//     // Session + role checks
-//     if (!req.session || !req.session.user) {
-//         return res.status(401).json({ success: false, message: "Unauthorized" });
-//     }
-//     if (req.session.user.role !== "job-seeker") {
-//         return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
-//     }
-
-//     // Find user doc
-//     const userDoc = await userModel.findOne({ id: req.session.user.id });
-//     if (!userDoc) {
-//         return res.status(404).json({ success: false, message: "User not found" });
-//     }
-
-//     // Find candidate profile (use userDoc._id)
-//     const existingCandidate = await candidate.findOne({ user: userDoc._id });
-//     if (!existingCandidate) {
-//         return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
-//     }
-
-
-
-
-
-
-
-// }
-// catch(err){
-//     console.error("Error in candidate-update-skills route:", err);
-//     return res.status(500).json({ success: false, message: "Internal server error while update candidate skill" });
-// }
-// })
-
-// summaryRouter.put('/candidate-update-skill/:id', isAuth, async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { skills } = req.body;
-
-//         if (!id || !skills) {
-//             return res.send({ success: false, message: "All fields are required!" });
-//         }
-
-//         if (!req.session || !req.session.user) {
-//             return res.status(401).json({ success: false, message: "Unauthorized" });
-//         }
-//         if (req.session.user.role !== "job-seeker") {
-//             return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
-//         }
-
-//         // Find user doc
-//         const userDoc = await userModel.findOne({ id: req.session.user.id });
-//         if (!userDoc) return res.status(404).json({ success: false, message: "User not found" });
-
-//         // Find candidate
-//         const existingCandidate = await candidate.findOne({ user: userDoc._id });
-//         if (!existingCandidate)
-//             return res.status(400).json({ success: false, message: "Candidate profile does not exist." });
-
-
-//         // Loop through new skills
-//         skills.forEach((newSkill) => {
-//             const idx = existingCandidate.skills.findIndex(s => s.masterSkillId === newSkill.id);
-
-//             console.log("idx" ,idx)
-
-//             if (idx > -1) {
-//                 // Update existing skill
-//                 existingCandidate.skills[idx] = { ...existingCandidate.skills[idx], ...newSkill };
-//             } else {
-//                 // Add new skill
-//                 existingCandidate.skills.push(newSkill);
-//             }
-//         });
-
-//         // Ensure only one isPrimary: true
-//         let primarySet = false;
-//         existingCandidate.skills = existingCandidate.skills.map((s) => {
-//             if (s.isPrimary) {
-//                 if (!primarySet) {
-//                     primarySet = true;
-//                     return s;
-//                 } else {
-//                     return { ...s, isPrimary: false }; // turn off extra primary
-//                 }
-//             }
-//             return s;
-//         });
-
-//         await existingCandidate.save();
-
-//         return res.json({ success: true, message: "Skills updated successfully", skills: existingCandidate.skills });
-//     } catch (err) {
-//         console.error("Error in candidate-update-skills route:", err);
-//         return res.status(500).json({ success: false, message: "Internal server error while updating skills" });
-//     }
-// });
 
 summaryRouter.put('/candidate-update-skill/:id', isAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { skills: newSkills } = req.body;
 
-        console.log("skills", newSkills)
-
         if (!id || !newSkills) {
             return res.status(400).json({ success: false, message: "All fields are required!" });
         }
-
-        // Auth & role checks
-        if (!req.session || !req.session.user) return res.status(401).json({ success: false, message: "Unauthorized" });
-        if (req.session.user.role !== "job-seeker") return res.status(403).json({ success: false, message: "Access denied" });
-
+        if (!req.session?.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        if (req.session.user.role !== "job-seeker") {
+            return res.status(403).json({ success: false, message: "Access denied" });
+        }
         const userDoc = await userModel.findOne({ id: req.session.user.id });
-        if (!userDoc) return res.status(404).json({ success: false, message: "User not found" });
-
+        if (!userDoc) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
         const existingCandidate = await candidate.findOne({ user: userDoc._id });
-        if (!existingCandidate) return res.status(400).json({ success: false, message: "Candidate profile does not exist." });
-
-        // Ensure newSkills is array
+        if (!existingCandidate) {
+            return res.status(400).json({ success: false, message: "Candidate profile does not exist." });
+        }
         let updateSkills = Array.isArray(newSkills) ? newSkills : [newSkills];
-
-        updateSkills.forEach((newSkill) => {
-            const idx = existingCandidate.skills.findIndex(s => s.masterSkillId === id);
-
-            if (idx > -1) {
-                // Update only this skill
-                existingCandidate.skills[idx] = { ...existingCandidate.skills[idx]._doc, ...newSkill };
-
-            } else {
-                // Add new skill (masterSkillId included)
-                existingCandidate.skills.push(newSkill);
+        for (let skill of updateSkills) {
+            if (!skill) {
+                return res.status(400).json({ success: false, message: "Invalid skill data" });
             }
-        });
+            let foundIndex = existingCandidate.skills.findIndex(
+                (s) => s._id && String(s._id) === String(id)
+            );
 
+            if (foundIndex === -1) {
+                return res.status(404).json({ success: false, message: "Skill ID not found" });
+            }
+            existingCandidate.skills[foundIndex] = {
+                ...existingCandidate.skills[foundIndex]._doc,
+                ...skill,
+            };
+        }
         await existingCandidate.save();
 
-        return res.json({ success: true, message: "Skills updated successfully", skills: existingCandidate.skills });
+        return res.json({success: true,message: "Skills updated successfully",skills: existingCandidate.skills});
     } catch (err) {
         console.error("Error in candidate-update-skills route:", err);
-        return res.status(500).json({ success: false, message: "Internal server error while updating skills" });
+        return res.status(500).json({ success: false, message: "Internal server error while updating skills"});
     }
 });
 
@@ -1547,106 +1435,116 @@ summaryRouter.put('/candidate-update-skill/:id', isAuth, async (req, res) => {
 
 
 
-summaryRouter.post('/candidate-skills', isAuth, async (req, res) => {
-    try {
-        const { skills, type } = req.body
-        console.log("skills", skills, type)
-        if (!req.session || !req.session.user) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-        }
-        // 🔹 Role check
-        if (req.session.user.role !== "job-seeker") {
-            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
-        }
-        // 🔹 DB check
-        const userId = await userModel.findOne({ id: req.session.user.id });
-        if (!userId) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-        const existingCandidate = await candidate.findOne({ user: userId })
-        if (!existingCandidate) {
-            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
-        }
-        if (type === "primarySkills") {
-            if (skills && skills.length > 0) {
-                // Normalize skills to include experience properly
-                const formattedSkills = skills.map((s) => ({
-                    id: s.id,
-                    primarySkill: s.primarySkill.trim().toLowerCase(),
-                    experience: Array.isArray(s.experience)
-                        ? s.experience[0]
-                        : s.experience || { month: 0, year: 0 },
-                    lastUsed: s.lastUsed || "",
-                    version: s.version || "",
-                }));
-
-                // Remove duplicates by primarySkill
-                const existingSkillNames = existingCandidate.primarySkills
-                    .map((s) => s.primarySkill.trim().toLowerCase());
-                const merged = [...existingSkillNames, ...formattedSkills.map(f => f.primarySkill)];
-                const uniqueSkillNames = [...new Set(merged)];
-
-                const uniqueFormattedSkills = uniqueSkillNames.map(name => {
-                    const skill = formattedSkills.find(f => f.primarySkill === name)
-                        || existingCandidate.primarySkills.find(e => e.primarySkill === name);
-                    return skill;
-                });
-
-                existingCandidate.primarySkills = uniqueFormattedSkills;
-                existingCandidate.skills = uniqueFormattedSkills;
-
-                await existingCandidate.save();
-                return res.status(200).json({
-                    success: true,
-                    message: "Primary skills saved successfully",
-                    data: existingCandidate.primarySkills
-                });
-            }
-        }
-
-        else {
-            return res.status(400).json({ success: false, message: "Invalid type specified" });
-        }
 
 
 
 
-    }
-    catch (err) {
-        console.log("Error in Candidate skills", err);
-        return res.status(500).json({ success: false, message: "Internal server error while saving candidate skills" });
-    }
-})
 
-summaryRouter.post('/educationinformation',isAuth , async (req,res)=>{
-    try{
-        const { profileSummary, address } = req.body;
-        if (!req.session || !req.session.user) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-        }
-        // 🔹 Role check
-        if (req.session.user.role !== "job-seeker") {
-            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
-        }
-        // 🔹 DB check
-        const userId = await userModel.findOne({ id: req.session.user.id });
-        if (!userId) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-        const existingCandidate = await candidate.findOne({ "user.id": userId })
-        if (!existingCandidate) {
-            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
-        } 
 
-    }
-    catch(err){
-        console.log("error", err);
-        return res.json({
-            success: false,
-            message: "Error in summary information",
-        });
-    }
-})
+
+
+
+
+// summaryRouter.post('/candidate-skills', isAuth, async (req, res) => {
+//     try {
+//         const { skills, type } = req.body
+//         console.log("skills", skills, type)
+//         if (!req.session || !req.session.user) {
+//             return res.status(401).json({ success: false, message: "Unauthorized" });
+//         }
+//         // 🔹 Role check
+//         if (req.session.user.role !== "job-seeker") {
+//             return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+//         }
+//         // 🔹 DB check
+//         const userId = await userModel.findOne({ id: req.session.user.id });
+//         if (!userId) {
+//             return res.status(404).json({ success: false, message: "User not found" });
+//         }
+//         const existingCandidate = await candidate.findOne({ user: userId })
+//         if (!existingCandidate) {
+//             return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+//         }
+//         if (type === "primarySkills") {
+//             if (skills && skills.length > 0) {
+//                 // Normalize skills to include experience properly
+//                 const formattedSkills = skills.map((s) => ({
+//                     id: s.id,
+//                     primarySkill: s.primarySkill.trim().toLowerCase(),
+//                     experience: Array.isArray(s.experience)
+//                         ? s.experience[0]
+//                         : s.experience || { month: 0, year: 0 },
+//                     lastUsed: s.lastUsed || "",
+//                     version: s.version || "",
+//                 }));
+
+//                 // Remove duplicates by primarySkill
+//                 const existingSkillNames = existingCandidate.primarySkills
+//                     .map((s) => s.primarySkill.trim().toLowerCase());
+//                 const merged = [...existingSkillNames, ...formattedSkills.map(f => f.primarySkill)];
+//                 const uniqueSkillNames = [...new Set(merged)];
+
+//                 const uniqueFormattedSkills = uniqueSkillNames.map(name => {
+//                     const skill = formattedSkills.find(f => f.primarySkill === name)
+//                         || existingCandidate.primarySkills.find(e => e.primarySkill === name);
+//                     return skill;
+//                 });
+
+//                 existingCandidate.primarySkills = uniqueFormattedSkills;
+//                 existingCandidate.skills = uniqueFormattedSkills;
+
+//                 await existingCandidate.save();
+//                 return res.status(200).json({
+//                     success: true,
+//                     message: "Primary skills saved successfully",
+//                     data: existingCandidate.primarySkills
+//                 });
+//             }
+//         }
+
+//         else {
+//             return res.status(400).json({ success: false, message: "Invalid type specified" });
+//         }
+
+
+
+
+//     }
+//     catch (err) {
+//         console.log("Error in Candidate skills", err);
+//         return res.status(500).json({ success: false, message: "Internal server error while saving candidate skills" });
+//     }
+// })
+
+// summaryRouter.post('/educationinformation',isAuth , async (req,res)=>{
+//     try{
+//         const { profileSummary, address } = req.body;
+//         if (!req.session || !req.session.user) {
+//             return res.status(401).json({ success: false, message: "Unauthorized" });
+//         }
+//         // 🔹 Role check
+//         if (req.session.user.role !== "job-seeker") {
+//             return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+//         }
+//         // 🔹 DB check
+//         const userId = await userModel.findOne({ id: req.session.user.id });
+//         if (!userId) {
+//             return res.status(404).json({ success: false, message: "User not found" });
+//         }
+//         const existingCandidate = await candidate.findOne({ "user.id": userId })
+//         if (!existingCandidate) {
+//             return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+//         } 
+
+//     }
+//     catch(err){
+//         console.log("error", err);
+//         return res.json({
+//             success: false,
+//             message: "Error in summary information",
+//         });
+//     }
+// })
 
 // summaryRouter.post('/perferredinfromation',isAuth,async (req,res)=>{
 //     try{ 
@@ -1768,71 +1666,62 @@ summaryRouter.get('/fetch-skills', async (req, res) => {
 
 
 
-summaryRouter.post('/personalInfromation', async (req, res) => {
-    try {
-        const { profile, profileInformation, language, disability } = req.body; // use the whole body directly
-        console.log("personalDetail", profile, profileInformation, language, disability);
-        return res.json({ success: true, message: "Personal info received"});
-    } catch (err) {
-        console.log("Error in /personalInfromation route", err);
-        return res.status(500).json({ success: false, message: "Internal server error while saving personal information" });
-    }
-});
 
-summaryRouter.post('/education' , async (req,res) =>{
-    try{
-        const { education } = req.body
-        console.log("education",education)
 
-        if (!req.session || !req.session.user) {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-        }
-        // 🔹 Role check
-        if (req.session.user.role !== "job-seeker") {
-            return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
-        }
-        // 🔹 DB check
-        const userId = await userModel.findOne({ id: req.session.user.id });
-        if (!userId) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-        const existingCandidate = await candidate.findOne({ "user.id": userId.id })
-        if (!existingCandidate) {
-            return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
-        } 
+// summaryRouter.post('/education' , async (req,res) =>{
+//     try{
+//         const { education } = req.body
+//         console.log("education",education)
+
+//         if (!req.session || !req.session.user) {
+//             return res.status(401).json({ success: false, message: "Unauthorized" });
+//         }
+//         // 🔹 Role check
+//         if (req.session.user.role !== "job-seeker") {
+//             return res.status(403).json({ success: false, message: "Access denied: Only job-seeker allowed" });
+//         }
+//         // 🔹 DB check
+//         const userId = await userModel.findOne({ id: req.session.user.id });
+//         if (!userId) {
+//             return res.status(404).json({ success: false, message: "User not found" });
+//         }
+//         const existingCandidate = await candidate.findOne({ "user.id": userId.id })
+//         if (!existingCandidate) {
+//             return res.status(400).json({ success: false, message: "Candidate profile does not exist. Please complete your profile first." });
+//         } 
         
-        // 🔹 Mandatory fields validation
-        for (let i = 0; i < education.length; i++) {
-            const edu = education[i];
-            if (
-                !edu.institutionName ||
-                !edu.courseCategory ||
-                !edu.courseType ||
-                !edu.courseName ||
-                !edu.gradeType ||
-                !edu.gradeValue ||
-                !edu.industryType ||
-                !edu.periodFromYear ||
-                (!edu.isOngoing && !edu.periodToYear)
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Education entry ${i + 1} is missing mandatory fields.`
-                });
-            }
-        }
+//         // 🔹 Mandatory fields validation
+//         for (let i = 0; i < education.length; i++) {
+//             const edu = education[i];
+//             if (
+//                 !edu.institutionName ||
+//                 !edu.courseCategory ||
+//                 !edu.courseType ||
+//                 !edu.courseName ||
+//                 !edu.gradeType ||
+//                 !edu.gradeValue ||
+//                 !edu.industryType ||
+//                 !edu.periodFromYear ||
+//                 (!edu.isOngoing && !edu.periodToYear)
+//             ) {
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: `Education entry ${i + 1} is missing mandatory fields.`
+//                 });
+//             }
+//         }
 
-        // 🔹 Save education to candidate
-        existingCandidate.education = education;
-        await existingCandidate.save();
+//         // 🔹 Save education to candidate
+//         existingCandidate.education = education;
+//         await existingCandidate.save();
 
-        return res.status(200).json({ success: true, message: "Education saved successfully." });
+//         return res.status(200).json({ success: true, message: "Education saved successfully." });
 
-    }
-    catch (err) {
-        console.log("Error in /personalInfromation route", err);
-        return res.status(500).json({ success: false, message: "Internal server error while saving personal information" });
-    }
-})
+//     }
+//     catch (err) {
+//         console.log("Error in /personalInfromation route", err);
+//         return res.status(500).json({ success: false, message: "Internal server error while saving personal information" });
+//     }
+// })
 
 module.exports = summaryRouter;
